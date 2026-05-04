@@ -57,11 +57,6 @@
           "type": "boolean",
           "default": false,
           "description": "When true, King server listens on all network interfaces (0.0.0.0) for cross-machine collaboration. When false (default), restricts to localhost (127.0.0.1) only."
-        },
-        "gnana.ngrokAuthToken": {
-          "type": "string",
-          "default": "",
-          "description": "Your ngrok auth token for internet tunneling. Get one free at https://dashboard.ngrok.com/get-started/your-authtoken"
         }
       }
     }

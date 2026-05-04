@@ -496,7 +496,7 @@ function kingView(s){
 
     // Tunnel section
     h+='<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">';
-    h+='<div class="share-title">Internet access (ngrok)</div>';
+    h+='<div class="share-title">Internet access</div>';
     if(S.tunnel.status==='idle'||S.tunnel.status==='disconnected'||S.tunnel.status==='error'){
       h+='<button class="btn-ghost btn-block" id="tunnelBtn">Share over internet</button>';
       if(S.tunnel.status==='error'){
@@ -508,7 +508,7 @@ function kingView(s){
       h+='<div class="share-addr" style="border-color:var(--success)">'+e(S.tunnel.url||'')+'</div>';
       h+='<button class="btn-ghost btn-block btn-sm" id="tunnelStopBtn" style="color:var(--error)">Stop tunnel</button>';
     }
-    h+='<div class="share-note">Requires <a href="https://ngrok.com/download" style="color:var(--btn-bg)">ngrok</a> CLI installed. Set auth token in Settings.</div>';
+    h+='<div class="share-note">Free TCP tunnel via <a href="https://github.com/ekzhang/bore" style="color:var(--btn-bg)">bore</a>. No signup needed.</div>';
     h+='</div>';
 
     h+='</div>';
