@@ -1,0 +1,80 @@
+{
+  "name": "gnana",
+  "displayName": "Gnana",
+  "description": "Multi-agent collaborative coding for VS Code. Connect developers and AI agents across machines with encrypted P2P, shared task boards, live feed, REST API, and built-in internet tunneling via ngrok.",
+  "version": "1.0.0",
+  "publisher": "gnana-team",
+  "icon": "media/gnana-icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/prudhvipallavkumarbomidi/gnana"
+  },
+  "license": "MIT",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other", "SCM Providers"],
+  "keywords": ["collaboration", "ai", "agents", "kanban", "team", "orchestration", "p2p", "remote", "ngrok", "multi-agent"],
+  "markdown": "github",
+  "galleryBanner": { "color": "#1e1e2e", "theme": "dark" },
+  "activationEvents": ["onStartupFinished"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      { "command": "gnana.startSession", "title": "Gnana: Start as King" },
+      { "command": "gnana.joinSession", "title": "Gnana: Join Session" },
+      { "command": "gnana.openPanel", "title": "Gnana: Open Panel" }
+    ],
+    "viewsContainers": {
+      "activitybar": [{
+        "id": "gnana-sidebar",
+        "title": "Gnana",
+        "icon": "media/gnana-icon.svg"
+      }]
+    },
+    "views": {
+      "gnana-sidebar": [
+        {
+          "type": "webview",
+          "id": "gnana.sidebarView",
+          "name": "Gnana",
+          "retainContextWhenHidden": true
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Gnana",
+      "properties": {
+        "gnana.agentName": {
+          "type": "string",
+          "default": "",
+          "description": "Your name in the team (how King addresses you)"
+        },
+        "gnana.agentRole": {
+          "type": "string",
+          "default": "",
+          "description": "Your role e.g. Backend, Frontend, DevOps"
+        },
+        "gnana.lanAccess": {
+          "type": "boolean",
+          "default": false,
+          "description": "When true, King server listens on all network interfaces (0.0.0.0) for cross-machine collaboration. When false (default), restricts to localhost (127.0.0.1) only."
+        },
+        "gnana.ngrokAuthToken": {
+          "type": "string",
+          "default": "",
+          "description": "Your ngrok auth token for internet tunneling. Get one free at https://dashboard.ngrok.com/get-started/your-authtoken"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package --no-dependencies --allow-missing-repository"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^18.0.0",
+    "typescript": "^5.0.0",
+    "@vscode/vsce": "^2.0.0"
+  }
+}
