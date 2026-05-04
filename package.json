@@ -55,7 +55,7 @@
         },
         "gnana.lanAccess": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "description": "When true, King server listens on all network interfaces (0.0.0.0) for cross-machine collaboration. When false (default), restricts to localhost (127.0.0.1) only."
         }
       }

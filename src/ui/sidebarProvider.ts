@@ -424,9 +424,11 @@ function ago(ts){
 function e(s){return s?s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):''}
 
 function render(){
-  if(!S.session){app.innerHTML=setupView();bindSetup();return}
-  app.innerHTML=barView(S.session)+tabsView()+panelView(S.session);
-  bindAll()
+  try {
+    if(!S.session){app.innerHTML=setupView();bindSetup();return}
+    app.innerHTML=barView(S.session)+tabsView()+panelView(S.session);
+    bindAll()
+  } catch(err){ app.innerHTML='<div style="padding:16px;color:var(--error)">UI error: '+e(String(err))+'</div>' }
 }
 
 // ── Setup ──
@@ -628,21 +630,24 @@ function bindAll(){
 // ── Messages ──
 window.addEventListener('message',ev=>{
   const m=ev.data;
-  if(m.type==='state_sync'){S.session=m.session;render()}
+  if(!m || !m.type) return;
+  try {
+  if(m.type==='state_sync'){S.session=m.session||null;render()}
   else if(m.type==='session_started'){
-    S.session={isKing:m.isKing,agentName:m.agentName,agentRole:m.agentRole||'',serverAddress:m.address,team:[],tasks:[],liveFeed:[],kingMessages:[],kingChatLog:[]};
+    S.session={isKing:m.isKing,agentName:m.agentName||'',agentRole:m.agentRole||'',serverAddress:m.address||'',team:[],tasks:[],liveFeed:[],kingMessages:[],kingChatLog:[]};
     render()
   }
   else if(m.type==='tunnel_status'){
-    S.tunnel={status:m.status,url:m.url||null,error:m.error||null};
+    S.tunnel={status:m.status||'idle',url:m.url||null,error:m.error||null};
     render()
   }
   else if(m.type==='error'){
     if(S.session&&S.session.kingChatLog){
-      S.session.kingChatLog.push({role:'system',content:'Error: '+m.text,timestamp:Date.now()});
+      S.session.kingChatLog.push({role:'system',content:'Error: '+(m.text||'Unknown error'),timestamp:Date.now()});
     }
     render()
   }
+  } catch(_e){ /* message handler error */ }
 });
 render()
 })();
