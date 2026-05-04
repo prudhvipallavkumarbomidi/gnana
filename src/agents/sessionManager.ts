@@ -293,6 +293,10 @@ export class SessionManager {
                             content: `${event.member.name} (${event.member.role}) joined`,
                             timestamp: Date.now()
                         });
+                        // King broadcasts updated team list to all agents
+                        if (this.session.isKing && this.p2p) {
+                            this.p2p.broadcast({ type: 'team_sync', members: this.session.team });
+                        }
                     }
                     break;
                 }
@@ -336,6 +340,13 @@ export class SessionManager {
                             content: this.truncate(event.content),
                             timestamp: Date.now()
                         });
+                    }
+                    break;
+
+                case 'team_sync':
+                    // Agent receives full team list from King
+                    if (!this.session.isKing && event.members) {
+                        this.session.team = event.members;
                     }
                     break;
 

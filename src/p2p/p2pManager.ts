@@ -71,6 +71,7 @@ export type P2PEvent =
     | { type: 'member_joined'; member: TeamMember }
     | { type: 'member_left'; memberId: string }
     | { type: 'task_sync'; tasks: TaskItem[] }
+    | { type: 'team_sync'; members: TeamMember[] }
     | { type: 'agent_update'; update: AgentUpdate }
     | { type: 'king_message'; to: string; content: string }
     | { type: 'connected' }
@@ -82,7 +83,7 @@ const DELIMITER = '\n__GNANA_MSG__\n';
 const ENCRYPTED_DELIMITER = '\n__GNANA_ENC__\n';
 const MAX_MESSAGE_SIZE = 256 * 1024;
 const MAX_BUFFER_SIZE = 1024 * 1024;
-const VALID_EVENT_TYPES = ['member_joined', 'member_left', 'task_sync', 'agent_update', 'king_message'];
+const VALID_EVENT_TYPES = ['member_joined', 'member_left', 'task_sync', 'team_sync', 'agent_update', 'king_message'];
 
 // ── P2PManager ───────────────────────────────────────────────────────
 export class P2PManager extends EventEmitter {
@@ -382,9 +383,10 @@ export class P2PManager extends EventEmitter {
         // Post-handshake event messages (must be authenticated + replay-checked)
         if (!authenticated) return null;
 
-        if (msg.seq !== undefined && msg.event && typeof msg.event === 'object') {
+        // Wrapped event messages with replay protection
+        if (msg.event && typeof msg.event === 'object') {
+            if (msg.seq === undefined) return null; // require seq on all event messages
             const seq = msg.seq as number;
-            // Check replay: seq must be strictly greater than last seen
             if (!this.checkAndUpdateSeq(socket, seq)) return null; // replay or out-of-order
             const event = msg.event as P2PEvent;
             if (!VALID_EVENT_TYPES.includes(event.type)) return null;
