@@ -26,6 +26,7 @@ export class SessionManager {
     private api: LocalApi | null = null;
     private session: GnanaSession | null = null;
     private onUpdate: () => void;
+    onTeamChat: ((msg: { sender: string; text: string; timestamp: number }) => void) | null = null;
 
     constructor(onUpdate: () => void) {
         this.onUpdate = onUpdate;
@@ -64,7 +65,12 @@ export class SessionManager {
 
     async joinAsAgent(agentName: string, agentRole: string, host: string, port: number, sessionSecret: string): Promise<void> {
         this.p2p = new P2PManager(agentName, agentRole, false, sessionSecret);
+        this.setupP2PHandlers();
 
+        // Connect first — throws if auth fails (wrong secret)
+        await this.p2p.connectToKing(host, port);
+
+        // Only create session AFTER successful authentication
         this.session = {
             isKing: false,
             agentName,
@@ -77,8 +83,6 @@ export class SessionManager {
             kingChatLog: []
         };
 
-        this.setupP2PHandlers();
-        await this.p2p.connectToKing(host, port);
         await this.startLocalApi();
 
         this.appendFeed({
@@ -350,6 +354,13 @@ export class SessionManager {
                     }
                     break;
 
+                case 'chat_message':
+                    // Forward to webview via the chat callback
+                    if (this.onTeamChat) {
+                        this.onTeamChat({ sender: event.sender, text: event.text, timestamp: event.timestamp });
+                    }
+                    break;
+
                 case 'connected':
                 case 'disconnected':
                     break;
@@ -373,6 +384,14 @@ export class SessionManager {
         this.appendFeed(update);
         this.p2p.broadcast({ type: 'agent_update', update });
         this.onUpdate();
+    }
+
+    /**
+     * Broadcast a team chat message to all peers.
+     */
+    broadcastTeamChat(msg: { sender: string; text: string; timestamp: number }): void {
+        if (!this.p2p) return;
+        this.p2p.broadcast({ type: 'chat_message', sender: msg.sender, text: msg.text, timestamp: msg.timestamp });
     }
 
     /**

@@ -12,6 +12,9 @@ export function activate(context: vscode.ExtensionContext) {
         const session = sessionManager.getSession();
         sidebarProvider.syncState(session);
     });
+    sessionManager.onTeamChat = (msg) => {
+        sidebarProvider.postMessage({ type: 'team_chat_msg', ...msg });
+    };
 
     sidebarProvider = new GnanaSidebarProvider(context.extensionUri, async (msg: any) => {
         const config = vscode.workspace.getConfiguration('gnana');
@@ -84,6 +87,40 @@ export function activate(context: vscode.ExtensionContext) {
             case 'send_agent_update':
                 sessionManager.sendAgentUpdate(msg.text, msg.updateType || 'status', msg.taskId);
                 break;
+
+            case 'team_chat': {
+                const sender = sessionManager.getSession()?.agentName || 'Unknown';
+                const chatMsg = { sender, text: msg.text, timestamp: Date.now() };
+                // Show locally
+                sidebarProvider.postMessage({ type: 'team_chat_msg', ...chatMsg });
+                // Broadcast to all peers
+                sessionManager.broadcastTeamChat(chatMsg);
+                break;
+            }
+
+            case 'ai_chat': {
+                try {
+                    // Try VS Code's built-in Language Model API first
+                    const models = await vscode.lm.selectChatModels();
+                    if (models.length > 0) {
+                        const model = models[0];
+                        const messages = [
+                            vscode.LanguageModelChatMessage.User(msg.text)
+                        ];
+                        const response = await model.sendRequest(messages);
+                        let fullText = '';
+                        for await (const chunk of response.text) {
+                            fullText += chunk;
+                        }
+                        sidebarProvider.postMessage({ type: 'ai_response', text: fullText });
+                    } else {
+                        sidebarProvider.postMessage({ type: 'ai_response', text: 'No AI model available. Make sure you are signed in to your IDE.' });
+                    }
+                } catch (err: any) {
+                    sidebarProvider.postMessage({ type: 'ai_response', text: 'AI error: ' + (err.message || 'Unknown error') });
+                }
+                break;
+            }
 
             case 'update_task_status':
                 sessionManager.updateTaskStatus(msg.taskId, msg.status);

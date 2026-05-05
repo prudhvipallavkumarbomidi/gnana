@@ -72,6 +72,7 @@ export type P2PEvent =
     | { type: 'member_left'; memberId: string }
     | { type: 'task_sync'; tasks: TaskItem[] }
     | { type: 'team_sync'; members: TeamMember[] }
+    | { type: 'chat_message'; sender: string; text: string; timestamp: number }
     | { type: 'agent_update'; update: AgentUpdate }
     | { type: 'king_message'; to: string; content: string }
     | { type: 'connected' }
@@ -83,7 +84,7 @@ const DELIMITER = '\n__GNANA_MSG__\n';
 const ENCRYPTED_DELIMITER = '\n__GNANA_ENC__\n';
 const MAX_MESSAGE_SIZE = 256 * 1024;
 const MAX_BUFFER_SIZE = 1024 * 1024;
-const VALID_EVENT_TYPES = ['member_joined', 'member_left', 'task_sync', 'team_sync', 'agent_update', 'king_message'];
+const VALID_EVENT_TYPES = ['member_joined', 'member_left', 'task_sync', 'team_sync', 'chat_message', 'agent_update', 'king_message'];
 
 // ── P2PManager ───────────────────────────────────────────────────────
 export class P2PManager extends EventEmitter {
@@ -156,6 +157,18 @@ export class P2PManager extends EventEmitter {
         return new Promise((resolve, reject) => {
             this.connectResolve = resolve;
             this.connectReject = reject;
+            let authFailed = false;
+
+            // Timeout if handshake doesn't complete within 10 seconds
+            const authTimeout = setTimeout(() => {
+                if (this.connectReject) {
+                    this.connectReject(new Error('Authentication timed out'));
+                    this.connectResolve = null;
+                    this.connectReject = null;
+                    authFailed = true;
+                    this.clientSocket?.destroy();
+                }
+            }, 10000);
 
             this.clientSocket = net.createConnection({ host, port }, () => {
                 // Step 1: request challenge (no secret on wire)
@@ -172,14 +185,24 @@ export class P2PManager extends EventEmitter {
 
                 // Try encrypted delimiter first, then plaintext (for handshake)
                 this.processBuffer(buffer, null, true, (rest) => { buffer = rest; });
+                
+                // If auth succeeded, clear the timeout
+                if (!this.connectResolve && !authFailed) {
+                    clearTimeout(authTimeout);
+                }
             });
 
             this.clientSocket.on('close', () => {
+                clearTimeout(authTimeout);
                 this.emitEvent({ type: 'disconnected' });
-                this.tryReconnect(host, port);
+                // Only auto-reconnect if auth previously succeeded
+                if (!authFailed && !this.connectReject) {
+                    this.tryReconnect(host, port);
+                }
             });
 
             this.clientSocket.on('error', (err: Error) => {
+                clearTimeout(authTimeout);
                 if ((err as any).code === 'ECONNREFUSED') {
                     reject(new Error(`Cannot connect to King at ${host}:${port}`));
                 } else {

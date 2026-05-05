@@ -406,12 +406,23 @@ input:focus, textarea:focus { border-color: var(--focus) }
   line-height: 1.5;
   margin-top: 6px;
 }
+.cmsg { margin-bottom: 8px; max-width: 85%; }
+.cmsg-mine { margin-left: auto; text-align: right; }
+.cmsg-other { margin-right: auto; }
+.cmsg-ai { margin-right: auto; }
+.cmsg-name { font-size: 10px; color: var(--fg2); margin-bottom: 2px; }
+.cmsg-text { background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 12px; line-height: 1.5; word-wrap: break-word; display: inline-block; text-align: left; }
+.cmsg-mine .cmsg-text { background: var(--btn-bg); color: var(--btn-fg); border-color: var(--btn-bg); }
+.cmsg-ai .cmsg-text { background: var(--bg); border-color: var(--btn-bg); }
+.cmsg-time { font-size: 9px; color: var(--fg2); margin-top: 2px; }
+.chat-input-row { display: flex; gap: 6px; padding: 8px 12px; border-top: 1px solid var(--border); }
+.chat-input-row input { flex: 1; }
 </style></head>
 <body><div id="app"></div>
 <script>
 (function(){
 const vscode=acquireVsCodeApi();
-let S={session:null,tab:'king',showAdd:false,tunnel:{status:'idle',url:null,error:null}};
+let S={session:null,tab:'king',showAdd:false,tunnel:{status:'idle',url:null,error:null},teamChat:[],aiChat:[],aiLoading:false};
 const $=id=>document.getElementById(id);
 const app=document.getElementById('app');
 
@@ -470,7 +481,7 @@ function barView(s){
 
 // ── Tabs ──
 function tabsView(){
-  const items=[['king','Orchestrate'],['tasks','Tasks'],['feed','Feed'],['team','Team']];
+  const items=[['king','Orchestrate'],['chat','Chat'],['tasks','Tasks'],['feed','Feed'],['ai','AI'],['team','Team']];
   return '<div class="tabs">'+items.map(([k,l])=>
     '<div class="tab'+(S.tab===k?' on':'')+'" data-tab="'+k+'">'+l+'</div>'
   ).join('')+'</div>'
@@ -479,8 +490,10 @@ function tabsView(){
 // ── Panels ──
 function panelView(s){
   if(S.tab==='king')return kingView(s);
+  if(S.tab==='chat')return chatTabView(s);
   if(S.tab==='tasks')return tasksView(s);
   if(S.tab==='feed')return feedView(s);
+  if(S.tab==='ai')return aiView(s);
   if(S.tab==='team')return teamView(s);
   return ''
 }
@@ -598,6 +611,39 @@ function teamView(s){
   return h+'</div>'
 }
 
+// ── Team Chat ──
+function chatTabView(s){
+  let h='<div class="chat-wrap"><div class="chat-scroll" id="teamChatScroll">';
+  if(!S.teamChat.length) h+='<div class="empty-msg">No messages yet. Say hi!</div>';
+  for(const m of S.teamChat){
+    const mine=m.sender===(s.agentName||'');
+    h+='<div class="cmsg '+(mine?'cmsg-mine':'cmsg-other')+'">';
+    if(!mine) h+='<div class="cmsg-name">'+e(m.sender)+'</div>';
+    h+='<div class="cmsg-text">'+e(m.text)+'</div>';
+    h+='<div class="cmsg-time">'+ago(m.timestamp)+'</div>';
+    h+='</div>';
+  }
+  h+='</div>';
+  h+='<div class="chat-input-row"><input id="teamChatIn" placeholder="Message the team..." /><button class="btn-primary btn-sm" id="teamChatSend">Send</button></div>';
+  return h+'</div>'
+}
+
+// ── AI Chat ──
+function aiView(s){
+  let h='<div class="chat-wrap"><div class="chat-scroll" id="aiChatScroll">';
+  if(!S.aiChat.length) h+='<div class="empty-msg">Ask the AI anything about your project.</div>';
+  for(const m of S.aiChat){
+    h+='<div class="cmsg '+(m.role==='user'?'cmsg-mine':'cmsg-ai')+'">';
+    if(m.role!=='user') h+='<div class="cmsg-name">AI</div>';
+    h+='<div class="cmsg-text">'+e(m.content)+'</div>';
+    h+='</div>';
+  }
+  if(S.aiLoading) h+='<div class="cmsg cmsg-ai"><div class="cmsg-name">AI</div><div class="cmsg-text" style="opacity:.5">Thinking...</div></div>';
+  h+='</div>';
+  h+='<div class="chat-input-row"><input id="aiChatIn" placeholder="Ask AI..." /><button class="btn-primary btn-sm" id="aiChatSend">Ask</button></div>';
+  return h+'</div>'
+}
+
 // ── Bindings ──
 function bindAll(){
   document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{S.tab=t.getAttribute('data-tab')||'king';render()}));
@@ -613,6 +659,22 @@ function bindAll(){
     ci.addEventListener('keydown',ev=>{if(ev.key==='Enter'&&(ev.ctrlKey||ev.metaKey)){ev.preventDefault();cs.click()}})
   }
   const cm=$('chatScroll');if(cm)cm.scrollTop=cm.scrollHeight;
+
+  // Team chat bindings
+  const tci=$('teamChatIn'),tcs=$('teamChatSend');
+  if(tci&&tcs){
+    tcs.onclick=()=>{const t=tci.value.trim();if(t){vscode.postMessage({type:'team_chat',text:t});tci.value=''}};
+    tci.addEventListener('keydown',ev=>{if(ev.key==='Enter'){ev.preventDefault();tcs.click()}})
+  }
+  const tcm=$('teamChatScroll');if(tcm)tcm.scrollTop=tcm.scrollHeight;
+
+  // AI chat bindings
+  const aci=$('aiChatIn'),acs=$('aiChatSend');
+  if(aci&&acs){
+    acs.onclick=()=>{const t=aci.value.trim();if(t){S.aiChat.push({role:'user',content:t,timestamp:Date.now()});S.aiLoading=true;render();vscode.postMessage({type:'ai_chat',text:t});aci.value=''}};
+    aci.addEventListener('keydown',ev=>{if(ev.key==='Enter'){ev.preventDefault();acs.click()}})
+  }
+  const acm=$('aiChatScroll');if(acm)acm.scrollTop=acm.scrollHeight;
 
   document.querySelectorAll('.tmv').forEach(b=>b.addEventListener('click',()=>vscode.postMessage({type:'update_task_status',taskId:b.getAttribute('data-id'),status:b.getAttribute('data-s')})));
   const ta=$('togAdd');if(ta)ta.onclick=()=>{S.showAdd=!S.showAdd;render()};
@@ -639,6 +701,17 @@ window.addEventListener('message',ev=>{
   }
   else if(m.type==='tunnel_status'){
     S.tunnel={status:m.status||'idle',url:m.url||null,error:m.error||null};
+    render()
+  }
+  else if(m.type==='team_chat_msg'){
+    S.teamChat.push({sender:m.sender||'?',text:m.text||'',timestamp:m.timestamp||Date.now()});
+    if(S.teamChat.length>200)S.teamChat=S.teamChat.slice(-200);
+    render()
+  }
+  else if(m.type==='ai_response'){
+    S.aiLoading=false;
+    S.aiChat.push({role:'assistant',content:m.text||'',timestamp:Date.now()});
+    if(S.aiChat.length>100)S.aiChat=S.aiChat.slice(-100);
     render()
   }
   else if(m.type==='error'){
