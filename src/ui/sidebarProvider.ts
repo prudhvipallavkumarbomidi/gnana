@@ -446,21 +446,41 @@ function render(){
 function setupView(){
   return '<div class="setup">'+
     '<div class="setup-brand">Gnana</div>'+
-    '<div class="setup-sub">Collaborative coding for Antigravity agents. Connect multiple machines under one orchestrator.</div>'+
+    '<div class="setup-sub">Collaborative AI orchestration for multi-agent coding teams.</div>'+
+
+    '<div class="section-title" style="margin-top:12px">Your identity</div>'+
+    '<input id="nameIn" placeholder="Your name (required)" value="'+(S.savedName||'')+'"/>'+
+    '<input id="roleIn" placeholder="Role (e.g. Frontend, Backend, DevOps)" value="'+(S.savedRole||'Developer')+'"/>'+
+
+    '<div class="section-title" style="margin-top:12px">Start a session</div>'+
+    '<input id="sessionNameIn" placeholder="Session name (e.g. Sprint 3)"/>'+
     '<button class="btn-primary btn-block" id="startBtn" style="padding:10px;font-weight:600">Start as King</button>'+
-    '<div class="sep"><span>join existing</span></div>'+
+
+    '<div class="sep"><span>or join existing</span></div>'+
     '<div style="display:flex;gap:6px"><input id="hostIn" placeholder="King IP" style="flex:2"/><input id="portIn" placeholder="9777" style="flex:1"/></div>'+
     '<input id="secretIn" placeholder="Session secret" style="font-family:var(--vscode-editor-font-family,monospace);font-size:11px"/>'+
-    '<button class="btn-ghost btn-block" id="joinBtn">Connect</button>'+
+    '<button class="btn-ghost btn-block" id="joinBtn">Connect as Agent</button>'+
     '<button class="btn-ghost btn-sm" id="setBtn" style="align-self:center;margin-top:4px">Settings</button></div>'
 }
 function bindSetup(){
   const sb=$('startBtn'),jb=$('joinBtn'),st=$('setBtn');
-  if(sb)sb.onclick=()=>vscode.postMessage({type:'start_king'});
+  if(sb)sb.onclick=()=>{
+    const name=($('nameIn')||{}).value?.trim();
+    const role=($('roleIn')||{}).value?.trim()||'Developer';
+    const sessionName=($('sessionNameIn')||{}).value?.trim()||'Untitled Session';
+    if(!name){alert('Please enter your name');return}
+    S.savedName=name;S.savedRole=role;
+    vscode.postMessage({type:'start_king',name,role,sessionName});
+  };
   if(jb)jb.onclick=()=>{
+    const name=($('nameIn')||{}).value?.trim();
+    const role=($('roleIn')||{}).value?.trim()||'Developer';
     const h=$('hostIn'),p=$('portIn'),s=$('secretIn');
-    if(h&&h.value&&s&&s.value)vscode.postMessage({type:'join_session',host:h.value.trim(),port:(p&&p.value.trim())||'9777',secret:s.value.trim()});
-    else if(!s||!s.value){alert('Session secret is required')}
+    if(!name){alert('Please enter your name');return}
+    if(!s||!s.value?.trim()){alert('Session secret is required');return}
+    if(!h||!h.value?.trim()){alert('King IP is required');return}
+    S.savedName=name;S.savedRole=role;
+    vscode.postMessage({type:'join_session',host:h.value.trim(),port:(p&&p.value.trim())||'9777',secret:s.value.trim(),name,role});
   };
   if(st)st.onclick=()=>vscode.postMessage({type:'open_settings'})
 }
